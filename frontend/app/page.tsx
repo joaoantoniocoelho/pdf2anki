@@ -208,71 +208,130 @@ export default function Home() {
       formData.append("pdf", pdfFile);
       formData.append("density", density);
 
-      const response = await api.post('/decks/generate', formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const response = await api.post(
+        `/decks/generate?density=${encodeURIComponent(density)}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 300_000,
+        }
+      );
 
       setProgress(100);
       setLoadingMessageIndex(loadingMessages.length - 1);
 
       const cardsData = response.data.cards;
       const metaData = response.data.meta;
-      
+
+      if (!cardsData || !Array.isArray(cardsData)) {
+        throw new Error("Resposta inválida do servidor");
+      }
+
       setCards(cardsData);
-      setMeta(metaData);
-      setDeckId(response.data.deckId);
+      setMeta(metaData ?? null);
+      setDeckId(response.data.deckId ?? null);
       setLoading(false);
-      
-      // Mostra toast de sucesso
-      const count = metaData.finalCount || metaData.afterDeduplication || cardsData.length;
-      showToast(`${count} flashcards gerados com sucesso!`, 'success');
-      
-      // Scroll para os cards usando requestAnimationFrame para garantir que o DOM foi atualizado
+
+      const count = metaData?.finalCount ?? metaData?.afterDeduplication ?? cardsData.length;
+      showToast(`${count} flashcards gerados com sucesso!`, "success");
+
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          cardsContainerRef.current?.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
+          cardsContainerRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
           });
         });
       });
-      
-      // Atualiza limites após gerar
+
       refreshLimits();
     } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response) {
-        const status = err.response.status;
-        const errorData = err.response.data;
-        const message = errorData.error || "Erro ao gerar flashcards";
-        
+      setLoading(false);
+
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const errorData = err.response?.data as { error?: string; message?: string } | undefined;
+        const message = errorData?.error ?? errorData?.message ?? "Erro ao gerar flashcards";
+
+        if (status === 400) {
+          setError(message);
+          showToast(message, "error");
+          return;
+        }
+
         if (status === 403) {
-          // Limite atingido ou densidade não permitida
-          const isLimitError = message.toLowerCase().includes('limite');
-          const isDensityError = message.toLowerCase().includes('densidade');
-          
+          const isLimitError = message.toLowerCase().includes("limite");
+          const isDensityError = message.toLowerCase().includes("densidade");
+
           if (isLimitError || isDensityError) {
             showUpgradeModal(
-              isLimitError ? 'Limite de PDFs Atingido' : 'Densidade Não Disponível',
-              message + (errorData.message ? `. ${errorData.message}` : ''),
+              isLimitError ? "Limite de PDFs Atingido" : "Densidade Não Disponível",
+              message + (errorData?.message ? `. ${errorData.message}` : ""),
               [
-                '20 PDFs por mês',
-                'Todas as densidades (low, medium, high)',
-                'Suporte prioritário',
-                'Acesso ilimitado ao histórico de decks',
+                "20 PDFs por mês",
+                "Todas as densidades (low, medium, high)",
+                "Suporte prioritário",
+                "Acesso ilimitado ao histórico de decks",
               ]
             );
           } else {
             setError(message);
           }
-        } else {
-          setError(message);
+          return;
         }
+
+        if (status === 409) {
+          const msg =
+            errorData?.message ??
+            "Você já tem uma geração em andamento. Aguarde a conclusão antes de iniciar outra.";
+          setError(msg);
+          showToast(msg, "error");
+          return;
+        }
+
+        if (status === 429) {
+          const retryAfter = err.response?.headers?.["retry-after"];
+          const seconds = retryAfter ? parseInt(String(retryAfter), 10) : 60;
+          const msg =
+            errorData?.message ??
+            `Servidor ocupado. Muitas gerações em andamento. Tente novamente em ${seconds} segundos.`;
+          setError(msg);
+          showToast(msg, "error");
+          return;
+        }
+
+        if (status === 500) {
+          const msg =
+            message ||
+            "Erro interno do servidor. Se o problema persistir, tente novamente em alguns minutos.";
+          setError(msg);
+          showToast(msg, "error");
+          return;
+        }
+
+        if (err.code === "ECONNABORTED" || err.message?.includes("timeout")) {
+          const msg = "A requisição demorou muito. Verifique sua conexão e tente novamente.";
+          setError(msg);
+          showToast(msg, "error");
+          return;
+        }
+
+        if (err.code === "ERR_NETWORK" || !err.response) {
+          const msg = "Erro de conexão. Verifique sua internet e tente novamente.";
+          setError(msg);
+          showToast(msg, "error");
+          return;
+        }
+
+        setError(message);
+        showToast(message, "error");
       } else {
-        setError(err instanceof Error ? err.message : "Erro desconhecido");
+        const msg = err instanceof Error ? err.message : "Erro desconhecido ao gerar flashcards";
+        setError(msg);
+        showToast(msg, "error");
       }
-      setLoading(false);
     }
   };
 
@@ -486,7 +545,20 @@ export default function Home() {
           <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl">
             <div className="flex items-start sm:items-center gap-3">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 sm:mt-0" />
-              <span className="text-sm sm:text-base font-medium">{error}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm sm:text-base font-medium">{error}</p>
+                <p className="text-xs text-red-600 mt-1">
+                  Corrija o problema e tente novamente, ou escolha outro PDF.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="flex-shrink-0 p-1 hover:bg-red-100 rounded-lg transition-colors"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
         )}

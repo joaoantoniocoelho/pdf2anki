@@ -1,7 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_CONFIG } from './config.js';
 import { buildFlashcardPrompt } from './prompt.js';
+import { LLM_TIMEOUT_MS } from '../config/limits.js';
 import type { Density, FlashcardEntity } from '../types/index.js';
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error('LLM request timed out. Please try again.')),
+        ms
+      )
+    ),
+  ]);
+}
 
 function cleanString(str: string): string {
   return str
@@ -77,8 +90,13 @@ export async function generateFlashcards(
       },
     });
     const prompt = buildFlashcardPrompt(text, density, cardsPerChunk);
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
+    const response = await withTimeout(
+      (async () => {
+        const result = await model.generateContent(prompt);
+        return result.response;
+      })(),
+      LLM_TIMEOUT_MS
+    );
     let responseText = response.text();
     responseText = cleanJsonResponse(responseText);
 

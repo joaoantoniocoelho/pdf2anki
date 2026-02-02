@@ -6,6 +6,7 @@ import type { Density, FlashcardEntity } from '../types/index.js';
 import { generateFlashcards } from '../gemini/client.js';
 import { GEMINI_MODEL, DENSITY_CONFIG } from '../gemini/config.js';
 import { PDF_LIMITS } from '../config/limits.js';
+import { withLlmSlot } from '../utils/concurrency.js';
 import { chunkText } from '../utils/chunking.js';
 import {
   dedupeCards,
@@ -49,7 +50,7 @@ export class DeckService {
       throw new Error('Failed to read PDF file');
     }
     try {
-      return await this.processPdfBuffer(userId, pdfFile, density, buffer);
+      return await this.generateDeckFromPdf(userId, buffer, pdfFile.originalname, density);
     } finally {
       try {
         await fs.promises.unlink(pdfFile.path);
@@ -104,11 +105,15 @@ export class DeckService {
     return deck;
   }
 
-  private async processPdfBuffer(
+  /**
+   * Core generation logic - isolated for future queue/worker migration.
+   * Receives buffer only; no file I/O. Caller is responsible for temp file cleanup.
+   */
+  async generateDeckFromPdf(
     userId: Types.ObjectId,
-    pdfFile: { path: string; originalname: string },
-    density: Density,
-    buffer: Buffer
+    buffer: Buffer,
+    originalFilename: string,
+    density: Density
   ): Promise<GenerateDeckResult> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey?.trim()) {
@@ -131,15 +136,9 @@ export class DeckService {
 
     const textLength = text.length;
     let chunkSize = 10000;
-    let maxConcurrent = 3;
-    if (textLength > 100000) {
-      chunkSize = 15000;
-      maxConcurrent = 5;
-    } else if (textLength > 50000) {
-      chunkSize = 12000;
-      maxConcurrent = 4;
-    }
-    maxConcurrent = Math.min(maxConcurrent, PDF_LIMITS.MAX_GEMINI_CALLS_PER_PDF);
+    if (textLength > 100000) chunkSize = 15000;
+    else if (textLength > 50000) chunkSize = 12000;
+    const maxConcurrent = 3; /* MVP: cap per-PDF parallelism to control cost */
 
     let chunks = chunkText(text, chunkSize);
     if (chunks.length > PDF_LIMITS.MAX_CHUNKS_PER_PDF) {
@@ -170,11 +169,8 @@ export class DeckService {
         try {
           const chunkNum = i + index + 1;
           console.log(`[${chunkNum}/${chunks.length}] Generating flashcards...`);
-          const cards = await generateFlashcards(
-            chunk,
-            density,
-            apiKey,
-            cardsPerChunk
+          const cards = await withLlmSlot(() =>
+            generateFlashcards(chunk, density, apiKey, cardsPerChunk)
           );
           console.log(`[${chunkNum}/${chunks.length}] ✓ ${cards.length} cards generated`);
           return cards;
@@ -204,8 +200,8 @@ export class DeckService {
 
     const deck = await this.deckRepository.create({
       userId,
-      name: pdfFile.originalname.replace('.pdf', ''),
-      pdfFileName: pdfFile.originalname,
+      name: originalFilename.replace(/\.pdf$/i, ''),
+      pdfFileName: originalFilename,
       cards: limitedCards,
       density,
       metadata: {

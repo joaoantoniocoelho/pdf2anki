@@ -1,18 +1,14 @@
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import { DeckService } from '../services/DeckService.js';
-import { UserLimitsService } from '../services/UserLimitsService.js';
 import type { Density } from '../types/index.js';
 
 export class DeckController {
   private readonly deckService = new DeckService();
-  private readonly limitsService = new UserLimitsService();
 
-  constructor() {}
-
-  generate = async (req: Request, res: Response): Promise<void> => {
+  generate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const pdfFile = req.file;
-      const density = (req.body?.density ?? 'medium') as string;
+      const density = (req.query?.density ?? req.body?.density ?? 'low') as string;
       const user = req.user;
       if (!user) {
         res.status(401).json({ error: 'Unauthorized' });
@@ -40,17 +36,12 @@ export class DeckController {
         });
       }
     } catch (error) {
-      if (req.pdfQuotaConsumed && req.user?._id) {
-        try {
-          await this.limitsService.releasePdfQuota(req.user._id.toString());
-        } catch (releaseErr) {
-          console.error('Failed to release PDF quota:', releaseErr);
-        }
-      }
-      console.error('Error in generate:', error);
-      res.status(500).json({
-        error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
+      next(error);
+    } finally {
+      req.releaseGenerationSlot?.();
+      req.releaseUserSlot?.();
+      req.releaseGenerationSlot = undefined;
+      req.releaseUserSlot = undefined;
     }
   };
 

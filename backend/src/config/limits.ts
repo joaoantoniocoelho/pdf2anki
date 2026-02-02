@@ -10,3 +10,6 @@ export const PDF_LIMITS = {
   /** Maximum parallel calls to Gemini per PDF (hard cap) */
   MAX_GEMINI_CALLS_PER_PDF: 20,
 } as const;
+
+/** Timeout for each LLM call in milliseconds */
+export const LLM_TIMEOUT_MS = 60_000;

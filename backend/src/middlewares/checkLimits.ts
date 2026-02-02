@@ -40,10 +40,13 @@ export function createCheckDensityAccess() {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       if (!requireUser(req, res)) return;
-      const density = req.body?.density
-        ? String(req.body.density).toLowerCase().trim()
-        : undefined;
-      if (density !== undefined) (req.body as { density?: string }).density = density;
+      const density =
+        req.query?.density ?? req.body?.density
+          ? String(req.query?.density ?? req.body?.density).toLowerCase().trim()
+          : undefined;
+      if (density !== undefined) {
+        (req.body as { density?: string }).density = density;
+      }
 
       const allowed = await limitsService.isDensityAllowed(req.user!, density ?? '');
       if (allowed) {

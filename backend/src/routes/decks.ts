@@ -10,6 +10,7 @@ import {
   createCheckPdfLimit,
   createCheckDensityAccess,
 } from '../middlewares/checkLimits.js';
+import { createCheckGenerationSlots } from '../middlewares/generationSlots.js';
 
 const uploadsDir = path.join(process.cwd(), 'uploads', 'tmp');
 fs.mkdirSync(uploadsDir, { recursive: true });
@@ -38,16 +39,18 @@ const upload = multer({
 export function createDecksRouter(): Router {
   const deckController = new DeckController();
   const authenticate = createAuthenticate();
-  const checkPdfLimit = createCheckPdfLimit();
   const checkDensityAccess = createCheckDensityAccess();
+  const checkPdfLimit = createCheckPdfLimit();
+  const checkGenerationSlots = createCheckGenerationSlots();
   const router = Router();
 
   router.post(
     '/generate',
     authenticate,
-    checkPdfLimit,
-    upload.single('pdf'),
     checkDensityAccess,
+    checkPdfLimit,
+    checkGenerationSlots,
+    upload.single('pdf'),
     deckController.generate
   );
   router.get('/', authenticate, deckController.getDecks);
@@ -61,11 +64,21 @@ export function createDecksRouter(): Router {
       error: unknown,
       req: Request,
       res: Response,
-      next: NextFunction
+      _next: NextFunction
     ): Promise<void> => {
+      req.releaseGenerationSlot?.();
+      req.releaseUserSlot?.();
       if (req.pdfQuotaConsumed && req.user?._id) {
         try {
           await limitsService.releasePdfQuota(req.user._id.toString());
+        } catch {
+          /* ignore */
+        }
+      }
+      const file = req.file as { path?: string } | undefined;
+      if (file?.path) {
+        try {
+          await fs.promises.unlink(file.path);
         } catch {
           /* ignore */
         }
@@ -82,7 +95,10 @@ export function createDecksRouter(): Router {
         res.status(400).json({ error: 'File must be a PDF' });
         return;
       }
-      next(error);
+      console.error('Deck route error:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
   );
 
