@@ -1,9 +1,11 @@
 import type { Request, Response } from 'express';
-import type { ExportService } from '../services/ExportService.js';
+import { ExportService } from '../services/ExportService.js';
 import type { FlashcardEntity } from '../types/index.js';
 
 export class ExportController {
-  constructor(private readonly exportService: ExportService) {}
+  private readonly exportService = new ExportService();
+
+  constructor() {}
 
   exportCards = async (req: Request, res: Response): Promise<void> => {
     try {

@@ -1,9 +1,11 @@
 import type { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
-import type { AuthService } from '../services/AuthService.js';
+import { AuthService } from '../services/AuthService.js';
 
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly authService = new AuthService();
+
+  constructor() {}
 
   signup = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -81,30 +83,6 @@ export class AuthController {
       console.error('Get profile error:', error);
       res.status(404).json({
         error: error instanceof Error ? error.message : 'Usuário não encontrado',
-      });
-    }
-  };
-
-  updateProfile = async (req: Request, res: Response): Promise<void> => {
-    try {
-      if (!req.user) {
-        res.status(401).json({ error: 'Não autorizado' });
-        return;
-      }
-      const { name } = req.body as { name?: string };
-      const result = await this.authService.execute({
-        type: 'updateProfile',
-        userId: req.user._id.toString(),
-        name: name!,
-      });
-      res.status(200).json({
-        message: 'Perfil atualizado com sucesso',
-        user: result.user,
-      });
-    } catch (error) {
-      console.error('Update profile error:', error);
-      res.status(400).json({
-        error: error instanceof Error ? error.message : 'Erro ao atualizar',
       });
     }
   };

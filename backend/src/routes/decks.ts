@@ -1,10 +1,30 @@
+import type { Request, Response, NextFunction } from 'express';
 import { Router } from 'express';
+import fs from 'fs';
 import multer from 'multer';
-import type { DeckController } from '../controllers/DeckController.js';
-import type { RequestHandler } from 'express';
+import path from 'path';
+import { DeckController } from '../controllers/DeckController.js';
+import { UserRepository } from '../repositories/UserRepository.js';
+import { createAuthenticate } from '../middlewares/auth.js';
+import {
+  createCheckPdfLimit,
+  createCheckDensityAccess,
+} from '../middlewares/checkLimits.js';
+
+const uploadsDir = path.join(process.cwd(), 'uploads', 'tmp');
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const safe = Buffer.from(file.originalname, 'latin1')
+        .toString('utf8')
+        .replace(/[^a-zA-Z0-9._-]/g, '_');
+      const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}-${safe}`;
+      cb(null, unique);
+    },
+  }),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype !== 'application/pdf') {
@@ -15,19 +35,18 @@ const upload = multer({
   },
 });
 
-export function createDecksRouter(
-  deckController: DeckController,
-  authenticate: RequestHandler,
-  checkPdfLimit: RequestHandler,
-  checkDensityAccess: RequestHandler
-): Router {
+export function createDecksRouter(): Router {
+  const deckController = new DeckController();
+  const authenticate = createAuthenticate();
+  const checkPdfLimit = createCheckPdfLimit();
+  const checkDensityAccess = createCheckDensityAccess();
   const router = Router();
 
   router.post(
     '/generate',
     authenticate,
-    upload.single('pdf'),
     checkPdfLimit,
+    upload.single('pdf'),
     checkDensityAccess,
     deckController.generate
   );
@@ -36,13 +55,21 @@ export function createDecksRouter(
   router.patch('/:deckId', authenticate, deckController.updateDeck);
   router.delete('/:deckId', authenticate, deckController.deleteDeck);
 
+  const userRepository = new UserRepository();
   router.use(
-    (
+    async (
       error: unknown,
-      _req: unknown,
-      res: { status: (n: number) => { json: (o: object) => void } },
-      next: (err?: unknown) => void
-    ) => {
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ): Promise<void> => {
+      if (req.pdfQuotaConsumed && req.user?._id) {
+        try {
+          await userRepository.releasePdfQuota(req.user._id.toString());
+        } catch {
+          /* ignorar */
+        }
+      }
       if (error instanceof multer.MulterError) {
         if (error.code === 'LIMIT_FILE_SIZE') {
           res.status(400).json({ error: 'PDF must be smaller than 10MB' });

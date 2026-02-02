@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import type { ExportController } from '../controllers/ExportController.js';
-import type { RequestHandler } from 'express';
+import { ExportController } from '../controllers/ExportController.js';
+import { createAuthenticate } from '../middlewares/auth.js';
+import { createCheckPlanLimits } from '../middlewares/checkLimits.js';
 
-export function createExportRouter(
-  exportController: ExportController,
-  authenticate: RequestHandler,
-  checkPlanLimits: RequestHandler
-): Router {
+export function createExportRouter(): Router {
+  const exportController = new ExportController();
+  const authenticate = createAuthenticate();
+  const checkPlanLimits = createCheckPlanLimits();
   const router = Router();
 
   router.post('/', authenticate, checkPlanLimits, exportController.exportCards);

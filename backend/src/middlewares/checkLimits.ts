@@ -1,7 +1,18 @@
+import fs from 'fs';
 import type { Request, Response, NextFunction } from 'express';
-import type { UserLimitsService } from '../services/UserLimitsService.js';
+import { UserLimitsService } from '../services/UserLimitsService.js';
+import { UserRepository } from '../repositories/UserRepository.js';
+import { PlanService } from '../services/PlanService.js';
 
-export function createCheckPdfLimit(userLimitsService: UserLimitsService) {
+/**
+ * Consome quota de PDF de forma atômica ANTES de qualquer upload.
+ * Se o processamento falhar depois, o controller deve chamar releasePdfQuota.
+ */
+export function createCheckPdfLimit() {
+  const userLimitsService = new UserLimitsService();
+  const userRepository = new UserRepository();
+  const planService = new PlanService();
+
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const user = req.user;
@@ -9,11 +20,20 @@ export function createCheckPdfLimit(userLimitsService: UserLimitsService) {
         res.status(401).json({ error: 'Usuário não autenticado' });
         return;
       }
-      const canUpload = await userLimitsService.execute({
-        type: 'canUploadPdf',
-        user,
+      const plan = await planService.execute({
+        type: 'getPlanByName',
+        planName: user.planType,
       });
-      if (!canUpload) {
+      if (!plan || Array.isArray(plan)) {
+        res.status(500).json({ error: 'Plano não encontrado' });
+        return;
+      }
+      const planLimit = plan.limits.pdfsPerMonth;
+      const result = await userRepository.tryConsumePdfQuota(
+        user._id.toString(),
+        planLimit
+      );
+      if (!result.consumed) {
         const limits = await userLimitsService.execute({
           type: 'getUserLimits',
           user,
@@ -34,6 +54,7 @@ export function createCheckPdfLimit(userLimitsService: UserLimitsService) {
         });
         return;
       }
+      req.pdfQuotaConsumed = true;
       next();
     } catch (error) {
       console.error('Check PDF limit error:', error);
@@ -42,7 +63,9 @@ export function createCheckPdfLimit(userLimitsService: UserLimitsService) {
   };
 }
 
-export function createCheckDensityAccess(userLimitsService: UserLimitsService) {
+export function createCheckDensityAccess() {
+  const userLimitsService = new UserLimitsService();
+  const userRepository = new UserRepository();
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const user = req.user;
@@ -61,6 +84,21 @@ export function createCheckDensityAccess(userLimitsService: UserLimitsService) {
         density: density ?? '',
       });
       if (!isAllowed) {
+        if (req.pdfQuotaConsumed) {
+          try {
+            await userRepository.releasePdfQuota(user._id.toString());
+          } catch {
+            /* ignorar erro ao liberar */
+          }
+        }
+        const file = req.file as { path?: string } | undefined;
+        if (file?.path) {
+          try {
+            await fs.promises.unlink(file.path);
+          } catch {
+            /* ignorar */
+          }
+        }
         const allowedDensities = await userLimitsService.execute({
           type: 'getAllowedDensities',
           user,
@@ -82,31 +120,8 @@ export function createCheckDensityAccess(userLimitsService: UserLimitsService) {
   };
 }
 
-export function createRequirePaidPlan() {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    try {
-      const user = req.user;
-      if (!user) {
-        res.status(401).json({ error: 'Usuário não autenticado' });
-        return;
-      }
-      if (user.planType !== 'paid') {
-        res.status(403).json({
-          error: 'Recurso disponível apenas para plano pago',
-          planType: user.planType,
-          message: 'Faça upgrade para acessar este recurso',
-        });
-        return;
-      }
-      next();
-    } catch (error) {
-      console.error('Require paid plan error:', error);
-      res.status(500).json({ error: 'Erro ao verificar plano' });
-    }
-  };
-}
-
-export function createCheckPlanLimits(userLimitsService: UserLimitsService) {
+export function createCheckPlanLimits() {
+  const userLimitsService = new UserLimitsService();
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const user = req.user;

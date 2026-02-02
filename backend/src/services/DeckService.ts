@@ -1,10 +1,11 @@
+import fs from 'fs';
 import type { Types } from 'mongoose';
-import type { DeckRepository } from '../repositories/DeckRepository.js';
-import type { UserRepository } from '../repositories/UserRepository.js';
+import { DeckRepository } from '../repositories/DeckRepository.js';
 import type { IDeckDoc } from '../models/Deck.js';
 import type { Density, FlashcardEntity } from '../types/index.js';
 import { generateFlashcards } from '../gemini/client.js';
 import { GEMINI_MODEL, DENSITY_CONFIG } from '../gemini/config.js';
+import { PDF_LIMITS } from '../config/limits.js';
 import { chunkText } from '../utils/chunking.js';
 import {
   dedupeCards,
@@ -15,7 +16,7 @@ import {
 export type GenerateDeckCommand = {
   type: 'generateDeck';
   userId: Types.ObjectId;
-  pdfFile: { buffer: Buffer; originalname: string };
+  pdfFile: { path: string; originalname: string };
   density: Density;
 };
 
@@ -80,10 +81,9 @@ export type DeckServiceResult =
   | void;
 
 export class DeckService {
-  constructor(
-    private readonly deckRepository: DeckRepository,
-    private readonly userRepository: UserRepository
-  ) {}
+  private readonly deckRepository = new DeckRepository();
+
+  constructor() {}
 
   async execute(cmd: DeckCommand): Promise<DeckServiceResult> {
     switch (cmd.type) {
@@ -103,13 +103,41 @@ export class DeckService {
   private async generateFromPdf(
     cmd: GenerateDeckCommand
   ): Promise<GenerateDeckResult> {
+    const filePath = cmd.pdfFile.path;
+    let buffer: Buffer;
+    try {
+      buffer = await fs.promises.readFile(filePath);
+    } catch {
+      throw new Error('Falha ao ler o arquivo PDF');
+    }
+    try {
+      return await this.processPdfBuffer(cmd, buffer);
+    } finally {
+      try {
+        await fs.promises.unlink(filePath);
+      } catch {
+        /* ignorar erro ao remover temp */
+      }
+    }
+  }
+
+  private async processPdfBuffer(
+    cmd: GenerateDeckCommand,
+    buffer: Buffer
+  ): Promise<GenerateDeckResult> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey?.trim()) {
       throw new Error('GEMINI_API_KEY não configurada no servidor');
     }
     const pdf = await import('pdf-parse');
-    const data = await pdf.default(cmd.pdfFile.buffer);
-    const text = data.text as string;
+    const data = await pdf.default(buffer);
+    let text = (data.text as string).trim();
+
+    if (text.length > PDF_LIMITS.MAX_TEXT_LENGTH) {
+      throw new Error(
+        `PDF muito grande. Máximo permitido: ${(PDF_LIMITS.MAX_TEXT_LENGTH / 1000).toFixed(0)}k caracteres de texto.`
+      );
+    }
 
     const validation = validatePdfText(text);
     if (!validation.valid) {
@@ -126,8 +154,12 @@ export class DeckService {
       chunkSize = 12000;
       maxConcurrent = 4;
     }
+    maxConcurrent = Math.min(maxConcurrent, PDF_LIMITS.MAX_GEMINI_CALLS_PER_PDF);
 
-    const chunks = chunkText(text, chunkSize);
+    let chunks = chunkText(text, chunkSize);
+    if (chunks.length > PDF_LIMITS.MAX_CHUNKS_PER_PDF) {
+      chunks = chunks.slice(0, PDF_LIMITS.MAX_CHUNKS_PER_PDF);
+    }
     const targetCount = DENSITY_CONFIG[cmd.density];
     let cardsPerChunk: number;
     if (chunks.length > 10) {
@@ -200,11 +232,6 @@ export class DeckService {
         finalCount: limitedCards.length,
       },
     });
-
-    const user = await this.userRepository.findById(cmd.userId.toString());
-    if (user) {
-      await user.incrementPdfCount();
-    }
 
     return {
       deck: deck as IDeckDoc,

@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import type { AuthController } from '../controllers/AuthController.js';
-import type { RequestHandler } from 'express';
+import { AuthController } from '../controllers/AuthController.js';
+import { createAuthenticate } from '../middlewares/auth.js';
 
-export function createAuthRouter(
-  authController: AuthController,
-  authenticate: RequestHandler
-): Router {
+export function createAuthRouter(): Router {
+  const authController = new AuthController();
+  const authenticate = createAuthenticate();
   const router = Router();
 
-  const signupValidation: RequestHandler[] = [
+  const signupValidation = [
     body('name').trim().notEmpty().withMessage('Nome é obrigatório'),
     body('email').isEmail().withMessage('Email inválido'),
     body('password')
@@ -17,7 +16,7 @@ export function createAuthRouter(
       .withMessage('Senha deve ter no mínimo 6 caracteres'),
   ];
 
-  const loginValidation: RequestHandler[] = [
+  const loginValidation = [
     body('email').isEmail().withMessage('Email inválido'),
     body('password').notEmpty().withMessage('Senha é obrigatória'),
   ];
@@ -25,7 +24,6 @@ export function createAuthRouter(
   router.post('/signup', signupValidation, authController.signup);
   router.post('/login', loginValidation, authController.login);
   router.get('/profile', authenticate, authController.getProfile);
-  router.put('/profile', authenticate, authController.updateProfile);
 
   return router;
 }

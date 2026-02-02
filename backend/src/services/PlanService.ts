@@ -1,4 +1,4 @@
-import type { PlanRepository } from '../repositories/PlanRepository.js';
+import { PlanRepository } from '../repositories/PlanRepository.js';
 import type { IPlanDoc } from '../models/Plan.js';
 
 export type GetPlanByNameCommand = { type: 'getPlanByName'; planName: string };
@@ -9,7 +9,9 @@ export type PlanCommand = GetPlanByNameCommand | GetAllPlansCommand;
 export type PlanServiceResult = IPlanDoc | IPlanDoc[] | null;
 
 export class PlanService {
-  constructor(private readonly planRepository: PlanRepository) {}
+  private readonly planRepository = new PlanRepository();
+
+  constructor() {}
 
   async execute(cmd: PlanCommand): Promise<PlanServiceResult> {
     switch (cmd.type) {

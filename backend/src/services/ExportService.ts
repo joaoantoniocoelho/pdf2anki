@@ -1,6 +1,6 @@
 import type { Types } from 'mongoose';
 import type { FlashcardEntity } from '../types/index.js';
-import type { DeckRepository } from '../repositories/DeckRepository.js';
+import { DeckRepository } from '../repositories/DeckRepository.js';
 
 export type ExportCardsCommand = {
   type: 'exportCards';
@@ -22,7 +22,9 @@ export interface ExportResult {
 }
 
 export class ExportService {
-  constructor(private readonly deckRepository: DeckRepository) {}
+  private readonly deckRepository = new DeckRepository();
+
+  constructor() {}
 
   async execute(cmd: ExportCommand): Promise<ExportResult> {
     switch (cmd.type) {

@@ -1,12 +1,10 @@
 import type { Response, NextFunction } from 'express';
 import type { Request } from 'express';
-import type { UserRepository } from '../repositories/UserRepository.js';
-import type { JwtPayload } from '../config/jwt.js';
+import { UserRepository } from '../repositories/UserRepository.js';
+import { verifyToken } from '../config/jwt.js';
 
-export function createAuthenticate(
-  userRepository: UserRepository,
-  verifyToken: (token: string) => JwtPayload | null
-) {
+export function createAuthenticate() {
+  const userRepository = new UserRepository();
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const authHeader = req.headers.authorization;

@@ -1,9 +1,13 @@
 import type { Request, Response } from 'express';
-import type { DeckService } from '../services/DeckService.js';
+import { DeckService } from '../services/DeckService.js';
+import { UserRepository } from '../repositories/UserRepository.js';
 import type { Density } from '../types/index.js';
 
 export class DeckController {
-  constructor(private readonly deckService: DeckService) {}
+  private readonly deckService = new DeckService();
+  private readonly userRepository = new UserRepository();
+
+  constructor() {}
 
   generate = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -14,7 +18,7 @@ export class DeckController {
         res.status(401).json({ error: 'Não autorizado' });
         return;
       }
-      if (!pdfFile) {
+      if (!pdfFile || !('path' in pdfFile)) {
         res.status(400).json({ error: 'PDF file is required' });
         return;
       }
@@ -26,7 +30,7 @@ export class DeckController {
         type: 'generateDeck',
         userId: user._id,
         pdfFile: {
-          buffer: pdfFile.buffer,
+          path: pdfFile.path,
           originalname: pdfFile.originalname,
         },
         density: density as Density,
@@ -40,6 +44,13 @@ export class DeckController {
         });
       }
     } catch (error) {
+      if (req.pdfQuotaConsumed && req.user?._id) {
+        try {
+          await this.userRepository.releasePdfQuota(req.user._id.toString());
+        } catch (releaseErr) {
+          console.error('Failed to release PDF quota:', releaseErr);
+        }
+      }
       console.error('Error in generate:', error);
       res.status(500).json({
         error: `Server error: ${error instanceof Error ? error.message : 'Unknown error'}`,

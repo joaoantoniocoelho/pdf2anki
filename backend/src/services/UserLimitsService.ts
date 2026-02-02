@@ -1,5 +1,6 @@
 import type { IUserDoc } from '../models/User.js';
-import type { PlanService } from './PlanService.js';
+import { UserRepository } from '../repositories/UserRepository.js';
+import { PlanService } from './PlanService.js';
 import type { Density } from '../types/index.js';
 
 export type GetUserLimitsCommand = { type: 'getUserLimits'; user: IUserDoc };
@@ -37,7 +38,10 @@ export interface UserLimitsResult {
 export type UserLimitsServiceResult = UserLimitsResult | boolean | string[];
 
 export class UserLimitsService {
-  constructor(private readonly planService: PlanService) {}
+  private readonly userRepository = new UserRepository();
+  private readonly planService = new PlanService();
+
+  constructor() {}
 
   async execute(cmd: UserLimitsCommand): Promise<UserLimitsServiceResult> {
     switch (cmd.type) {
@@ -53,8 +57,10 @@ export class UserLimitsService {
   }
 
   private async getUserLimits(user: IUserDoc): Promise<UserLimitsResult> {
-    user.checkAndResetMonthlyCount();
-    await user.save();
+    const freshUser =
+      (await this.userRepository.ensureMonthlyResetAndGet(
+        user._id.toString()
+      )) ?? user;
     const plan = await this.planService.execute({
       type: 'getPlanByName',
       planName: user.planType,
@@ -63,7 +69,7 @@ export class UserLimitsService {
       throw new Error('Plano não encontrado');
     }
     const pdfLimit = plan.limits.pdfsPerMonth;
-    const pdfUsed = user.monthlyPdfCount;
+    const pdfUsed = freshUser.monthlyPdfCount;
     const pdfRemaining = pdfLimit - pdfUsed;
     return {
       plan: {
@@ -85,13 +91,16 @@ export class UserLimitsService {
   }
 
   private async canUploadPdf(user: IUserDoc): Promise<boolean> {
-    user.checkAndResetMonthlyCount();
+    const freshUser =
+      (await this.userRepository.ensureMonthlyResetAndGet(
+        user._id.toString()
+      )) ?? user;
     const plan = await this.planService.execute({
       type: 'getPlanByName',
-      planName: user.planType,
+      planName: freshUser.planType,
     });
     if (!plan || Array.isArray(plan)) return false;
-    return user.monthlyPdfCount < plan.limits.pdfsPerMonth;
+    return freshUser.monthlyPdfCount < plan.limits.pdfsPerMonth;
   }
 
   private async isDensityAllowed(user: IUserDoc, density: string): Promise<boolean> {

@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { UserModel, type IUserDoc } from '../models/User.js';
 import type { PlanType } from '../types/index.js';
 
@@ -10,8 +11,9 @@ export interface CreateUserInput {
 
 export class UserRepository {
   async create(data: CreateUserInput): Promise<IUserDoc> {
-    const user = new UserModel(data);
-    return (await user.save()) as IUserDoc;
+    const hashed = await bcrypt.hash(data.password, 10);
+    const user = await UserModel.create({ ...data, password: hashed });
+    return user as unknown as IUserDoc;
   }
 
   async findByEmail(email: string): Promise<IUserDoc | null> {
@@ -33,5 +35,91 @@ export class UserRepository {
       runValidators: true,
     }).exec();
     return doc ?? null;
+  }
+
+  private getCurrentMonth(): string {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  /**
+   * Reset mensal atômico: reseta o contador quando muda o mês.
+   * Uma única operação findOneAndUpdate.
+   */
+  async ensureMonthlyResetAndGet(userId: string): Promise<IUserDoc | null> {
+    const currentMonth = this.getCurrentMonth();
+    const now = new Date();
+    const updated = await UserModel.findOneAndUpdate(
+      {
+        _id: userId,
+        $or: [
+          { pdfUsageMonth: { $ne: currentMonth } },
+          { pdfUsageMonth: { $exists: false } },
+          { pdfUsageMonth: null },
+        ],
+      },
+      {
+        $set: {
+          pdfUsageMonth: currentMonth,
+          monthlyPdfCount: 0,
+          lastPdfResetDate: now,
+        },
+      },
+      { new: true }
+    ).exec();
+    if (updated) return updated as unknown as IUserDoc;
+    const user = await UserModel.findById(userId).exec();
+    return user ? (user as unknown as IUserDoc) : null;
+  }
+
+  /**
+   * Consome uma unidade de quota de PDF de forma atômica.
+   * Reset mensal (se necessário) e incremento em operações atômicas sequenciais.
+   * @returns { consumed: true, newCount } em sucesso, { consumed: false } se limite atingido
+   */
+  async tryConsumePdfQuota(
+    userId: string,
+    planLimit: number
+  ): Promise<{ consumed: boolean; newCount?: number }> {
+    const currentMonth = this.getCurrentMonth();
+    await UserModel.findOneAndUpdate(
+      {
+        _id: userId,
+        $or: [
+          { pdfUsageMonth: { $ne: currentMonth } },
+          { pdfUsageMonth: { $exists: false } },
+          { pdfUsageMonth: null },
+        ],
+      },
+      {
+        $set: {
+          pdfUsageMonth: currentMonth,
+          monthlyPdfCount: 0,
+          lastPdfResetDate: new Date(),
+        },
+      }
+    ).exec();
+    const updated = await UserModel.findOneAndUpdate(
+      { _id: userId, monthlyPdfCount: { $lt: planLimit } },
+      { $inc: { monthlyPdfCount: 1 } },
+      { new: true }
+    )
+      .select('monthlyPdfCount')
+      .exec();
+    if (!updated) return { consumed: false };
+    return { consumed: true, newCount: updated.monthlyPdfCount };
+  }
+
+  /**
+   * Reverte o consumo de quota (rollback em caso de falha no processamento).
+   * Seguro e idempotente: só decrementa se monthlyPdfCount > 0.
+   */
+  async releasePdfQuota(userId: string): Promise<void> {
+    await UserModel.findOneAndUpdate(
+      { _id: userId, monthlyPdfCount: { $gt: 0 } },
+      { $inc: { monthlyPdfCount: -1 } }
+    ).exec();
   }
 }

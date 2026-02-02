@@ -1,5 +1,8 @@
-import type { UserRepository } from '../repositories/UserRepository.js';
-import type { UserLimitsService } from './UserLimitsService.js';
+import bcrypt from 'bcryptjs';
+import { UserRepository } from '../repositories/UserRepository.js';
+import { UserLimitsService } from './UserLimitsService.js';
+import { generateToken } from '../config/jwt.js';
+import { toUserResponse } from '../utils/user.js';
 
 export type SignupCommand = {
   type: 'signup';
@@ -16,17 +19,10 @@ export type LoginCommand = {
 
 export type GetProfileCommand = { type: 'getProfile'; userId: string };
 
-export type UpdateProfileCommand = {
-  type: 'updateProfile';
-  userId: string;
-  name: string;
-};
-
 export type AuthCommand =
   | SignupCommand
   | LoginCommand
   | GetProfileCommand
-  | UpdateProfileCommand;
 
 export interface AuthServiceResult {
   user?: Record<string, unknown> & { limits?: unknown };
@@ -34,11 +30,10 @@ export interface AuthServiceResult {
 }
 
 export class AuthService {
-  constructor(
-    private readonly userRepository: UserRepository,
-    private readonly userLimitsService: UserLimitsService,
-    private readonly generateToken: (userId: string) => string
-  ) {}
+  private readonly userRepository = new UserRepository();
+  private readonly userLimitsService = new UserLimitsService();
+
+  constructor() {}
 
   async execute(cmd: AuthCommand): Promise<AuthServiceResult> {
     switch (cmd.type) {
@@ -48,8 +43,6 @@ export class AuthService {
         return this.login(cmd);
       case 'getProfile':
         return this.getProfile(cmd);
-      case 'updateProfile':
-        return this.updateProfile(cmd);
     }
   }
 
@@ -64,14 +57,14 @@ export class AuthService {
       password: cmd.password,
       planType: 'free',
     });
-    const token = this.generateToken(user._id.toString());
+    const token = generateToken(user._id.toString());
     const limits = await this.userLimitsService.execute({
       type: 'getUserLimits',
       user,
     });
     return {
       user: {
-        ...(user.toJSON() as Record<string, unknown>),
+        ...toUserResponse(user),
         limits,
       },
       token,
@@ -83,18 +76,18 @@ export class AuthService {
     if (!user) {
       throw new Error('Credenciais inválidas');
     }
-    const isValid = await user.comparePassword(cmd.password);
+    const isValid = await bcrypt.compare(cmd.password, user.password);
     if (!isValid) {
       throw new Error('Credenciais inválidas');
     }
-    const token = this.generateToken(user._id.toString());
+    const token = generateToken(user._id.toString());
     const limits = await this.userLimitsService.execute({
       type: 'getUserLimits',
       user,
     });
     return {
       user: {
-        ...(user.toJSON() as Record<string, unknown>),
+        ...toUserResponse(user),
         limits,
       },
       token,
@@ -112,17 +105,9 @@ export class AuthService {
     });
     return {
       user: {
-        ...(user.toJSON() as Record<string, unknown>),
+        ...toUserResponse(user),
         limits,
       },
     };
-  }
-
-  private async updateProfile(cmd: UpdateProfileCommand): Promise<AuthServiceResult> {
-    const user = await this.userRepository.update(cmd.userId, { name: cmd.name });
-    if (!user) {
-      throw new Error('Usuário não encontrado');
-    }
-    return { user: user.toJSON() as Record<string, unknown> };
   }
 }
