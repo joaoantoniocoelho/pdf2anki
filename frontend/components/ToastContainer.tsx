@@ -16,17 +16,17 @@ interface ToastContainerProps {
 
 export default function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
   return (
-    <div className="fixed top-20 right-4 z-50 space-y-2 pointer-events-none">
+    <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none max-w-[calc(100vw-2rem)]">
       {toasts.map((toast) => (
         <div
           key={toast.id}
           className="pointer-events-auto animate-slide-in-right"
         >
           <div
-            className={`bg-white rounded-xl shadow-2xl border-2 px-4 py-3 max-w-md ${
-              toast.type === 'success'
-                ? 'border-green-200 bg-gradient-to-r from-green-50 to-emerald-50'
-                : 'border-red-200 bg-gradient-to-r from-red-50 to-rose-50'
+            className={`bg-white rounded-card shadow-card-hover border px-4 py-3 max-w-md ${
+              toast.type === "success"
+                ? "border-green-200 bg-green-50"
+                : "border-red-200 bg-red-50"
             }`}
           >
             <div className="flex items-start gap-3">

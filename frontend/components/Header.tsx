@@ -1,109 +1,106 @@
 "use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { 
-  BookOpen, 
-  LogOut, 
-  LayoutDashboard, 
-  Sparkles, 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  BookOpen,
+  LayoutDashboard,
+  Sparkles,
   User as UserIcon,
   Coins,
-  LogIn
-} from 'lucide-react';
-import { logout } from '@/lib/auth';
-import { useUser } from '@/contexts/UserContext';
-import { useAuthModal } from '@/contexts/AuthModalContext';
+  LogIn,
+} from "lucide-react";
+import { useUser } from "@/contexts/UserContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 
 export default function Header() {
   const pathname = usePathname();
   const { user, isAuthenticated, getCredits } = useUser();
   const { openLoginModal } = useAuthModal();
-
-  const handleLogout = () => {
-    logout();
-  };
-
   const credits = getCredits();
 
   return (
     <>
       {/* Desktop Header */}
-      <header className="hidden md:block bg-white/70 backdrop-blur-xl border-b border-blue-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+      <header className="hidden md:block bg-white border-b border-border sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
-            
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group flex-shrink-0">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Link
+              href="/"
+              className="flex items-center gap-2 group flex-shrink-0"
+              aria-label="Revisa Aí – início"
+            >
+              <div className="w-9 h-9 bg-primary rounded-card flex items-center justify-center group-hover:opacity-90 transition-opacity">
                 <BookOpen className="w-4 h-4 text-white" />
               </div>
-              <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                pdf2anki
+              <span className="text-lg font-semibold text-gray-900">
+                Revisa Aí
               </span>
             </Link>
 
-            {/* Navigation */}
-            <nav className="flex items-center gap-2">
+            <nav className="flex items-center gap-1" aria-label="Navegação principal">
               <Link
                 href="/"
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  pathname === '/'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  pathname === "/"
+                    ? "bg-primary-muted text-primary"
+                    : "text-muted hover:bg-gray-100"
                 }`}
               >
-                <div className="flex items-center gap-1.5">
+                <span className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  <span>Gerar</span>
-                </div>
+                  Gerar
+                </span>
               </Link>
-              
               {isAuthenticated && (
-                <Link
-                  href="/dashboard"
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    pathname === '/dashboard'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <LayoutDashboard className="w-4 h-4" />
-                    <span>Decks</span>
-                  </div>
-                </Link>
+                <>
+                  <Link
+                    href="/dashboard"
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      pathname === "/dashboard"
+                        ? "bg-primary-muted text-primary"
+                        : "text-muted hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <LayoutDashboard className="w-4 h-4" />
+                      Decks
+                    </span>
+                  </Link>
+                  <Link
+                    href="/account"
+                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      pathname === "/account"
+                        ? "bg-primary-muted text-primary"
+                        : "text-muted hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <UserIcon className="w-4 h-4" />
+                      Conta
+                    </span>
+                  </Link>
+                </>
               )}
             </nav>
 
-            {/* User Info - Compact */}
-            <div className="flex items-center gap-2 flex-shrink-0 relative">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {isAuthenticated ? (
-                <>
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
-                    <UserIcon className="w-3.5 h-3.5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700 max-w-[120px] truncate">
-                      {user?.name?.split(' ')[0]}
-                    </span>
-                    <span className="text-xs text-gray-600 bg-white px-2 py-0.5 rounded flex items-center gap-1">
-                      <Coins className="w-3 h-3 text-amber-500" />
-                      {credits}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={handleLogout}
-                    className="p-1.5 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-                    title="Sair"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </>
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-card border border-border">
+                  <UserIcon className="w-4 h-4 text-muted" />
+                  <span className="text-sm font-medium text-gray-700 max-w-[100px] truncate">
+                    {user?.name?.split(" ")[0]}
+                  </span>
+                  <span className="text-xs text-muted flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-border">
+                    <Coins className="w-3.5 h-3.5 text-amber-500" />
+                    {credits}
+                  </span>
+                </div>
               ) : (
                 <button
                   type="button"
                   onClick={openLoginModal}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-card hover:bg-primary-hover transition-colors flex items-center gap-2"
                 >
                   <LogIn className="w-4 h-4" />
                   Entrar
@@ -115,76 +112,80 @@ export default function Header() {
       </header>
 
       {/* Mobile Header */}
-      <header className="md:hidden bg-white/70 backdrop-blur-xl border-b border-blue-100 sticky top-0 z-50">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-base font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                pdf2anki
+      <header className="md:hidden bg-white border-b border-border sticky top-0 z-50">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <Link
+            href="/"
+            className="flex items-center gap-2"
+            aria-label="Revisa Aí"
+          >
+            <div className="w-8 h-8 bg-primary rounded-card flex items-center justify-center">
+              <BookOpen className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-base font-semibold text-gray-900">
+              Revisa Aí
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            {isAuthenticated ? (
+              <span className="text-xs text-muted flex items-center gap-1 bg-gray-50 px-2 py-1.5 rounded border border-border">
+                <Coins className="w-3.5 h-3.5 text-amber-500" />
+                {credits} créditos
               </span>
-            </div>
-
-            {/* User Info Compact */}
-            <div className="flex items-center gap-2 relative">
-              {isAuthenticated ? (
-                <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded border border-blue-200 flex items-center gap-1">
-                  <Coins className="w-3 h-3 text-amber-500" />
-                  {credits} créditos
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={openLoginModal}
-                  className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg font-semibold text-xs flex items-center gap-1"
-                >
-                  <LogIn className="w-3 h-3" />
-                  Entrar
-                </button>
-              )}
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openLoginModal}
+                className="px-3 py-2 bg-primary text-white text-sm font-medium rounded-card flex items-center gap-1"
+              >
+                <LogIn className="w-4 h-4" />
+                Entrar
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Mobile Bottom Navigation - Fixed (only when logged in) */}
+      {/* Mobile Bottom Navigation (when logged in) */}
       {isAuthenticated && (
-        <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white/90 backdrop-blur-xl border-t border-blue-100 z-50 safe-area-inset-bottom">
-          <div className="flex items-center justify-around px-2 py-3">
+        <nav
+          className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-border z-50 safe-area-inset-bottom"
+          aria-label="Navegação mobile"
+        >
+          <div className="flex items-center justify-around px-2 py-2">
             <Link
               href="/"
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
-                pathname === '/'
-                  ? 'text-blue-600 bg-blue-50'
-                  : 'text-gray-600'
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-card transition-colors ${
+                pathname === "/"
+                  ? "text-primary bg-primary-muted"
+                  : "text-muted"
               }`}
             >
               <Sparkles className="w-5 h-5" />
               <span className="text-xs font-medium">Gerar</span>
             </Link>
-
             <Link
               href="/dashboard"
-              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all ${
-                pathname === '/dashboard'
-                  ? 'text-blue-600 bg-blue-50'
-                  : 'text-gray-600'
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-card transition-colors ${
+                pathname === "/dashboard"
+                  ? "text-primary bg-primary-muted"
+                  : "text-muted"
               }`}
             >
               <LayoutDashboard className="w-5 h-5" />
               <span className="text-xs font-medium">Decks</span>
             </Link>
-
-            <button
-              onClick={handleLogout}
-              className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all text-gray-600 hover:text-red-600 hover:bg-red-50"
+            <Link
+              href="/account"
+              className={`flex flex-col items-center gap-1 px-4 py-2 rounded-card transition-colors ${
+                pathname === "/account"
+                  ? "text-primary bg-primary-muted"
+                  : "text-muted"
+              }`}
             >
-              <LogOut className="w-5 h-5" />
-              <span className="text-xs font-medium">Sair</span>
-            </button>
+              <UserIcon className="w-5 h-5" />
+              <span className="text-xs font-medium">Conta</span>
+            </Link>
           </div>
         </nav>
       )}

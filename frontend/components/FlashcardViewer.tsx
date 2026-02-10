@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,7 +10,7 @@ import {
   Layers,
   List,
   Download,
-} from 'lucide-react';
+} from "lucide-react";
 
 interface Flashcard {
   front: string;
@@ -18,7 +18,7 @@ interface Flashcard {
   tags?: string[];
 }
 
-type ViewMode = "list" | "deck";
+type ViewMode = "deck" | "list";
 
 interface FlashcardViewerProps {
   cards: Flashcard[];
@@ -69,8 +69,8 @@ export default function FlashcardViewer({
     const el = scrollRef.current;
     if (!el) return;
     const handleScrollEnd = () => updateCurrentIndex();
-    el.addEventListener('scrollend', handleScrollEnd);
-    return () => el.removeEventListener('scrollend', handleScrollEnd);
+    el.addEventListener("scrollend", handleScrollEnd);
+    return () => el.removeEventListener("scrollend", handleScrollEnd);
   }, [updateCurrentIndex]);
 
   useEffect(() => {
@@ -81,9 +81,9 @@ export default function FlashcardViewer({
       clearTimeout(timeout);
       timeout = setTimeout(updateCurrentIndex, 100);
     };
-    el.addEventListener('scroll', handleScroll);
+    el.addEventListener("scroll", handleScroll);
     return () => {
-      el.removeEventListener('scroll', handleScroll);
+      el.removeEventListener("scroll", handleScroll);
       clearTimeout(timeout);
     };
   }, [updateCurrentIndex]);
@@ -93,31 +93,28 @@ export default function FlashcardViewer({
     const slide = slideRefs.current[index];
     if (el && slide) {
       setShowAnswer(false);
-      slide.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+      slide.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
     }
   };
 
   const nextCard = () => {
-    if (currentCardIndex < cards.length - 1) {
-      scrollToCard(currentCardIndex + 1);
-    }
+    if (currentCardIndex < cards.length - 1) scrollToCard(currentCardIndex + 1);
   };
 
   const prevCard = () => {
-    if (currentCardIndex > 0) {
-      scrollToCard(currentCardIndex - 1);
-    }
+    if (currentCardIndex > 0) scrollToCard(currentCardIndex - 1);
   };
 
   const handleCardClick = (index: number) => {
-    if (index === currentCardIndex) {
-      setShowAnswer((prev) => !prev);
-    }
+    if (index === currentCardIndex) setShowAnswer((prev) => !prev);
   };
 
   useEffect(() => {
     if (viewMode !== "deck" || cards.length === 0) return;
-
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -130,7 +127,6 @@ export default function FlashcardViewer({
         setShowAnswer((prev) => !prev);
       }
     };
-
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [viewMode, currentCardIndex, cards.length]);
@@ -138,228 +134,232 @@ export default function FlashcardViewer({
   if (cards.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Nenhum card encontrado</p>
+        <p className="text-muted text-sm">Nenhum cartão neste deck.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header: linha 1 = nome + deck/lista, linha 2 = download */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-nowrap items-center gap-2 sm:gap-3 min-w-0">
-          {deckName && (
-            <h2 className="text-lg sm:text-xl font-bold text-gray-800 truncate min-w-0 flex-1">
-              {deckName}
-            </h2>
-          )}
-          <div className="inline-flex flex-shrink-0 bg-gray-100 rounded-xl sm:rounded-2xl p-1">
-            <button
-              onClick={() => setViewMode("deck")}
-              className={`px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-1.5 sm:gap-2 ${
-                viewMode === "deck"
-                  ? "bg-white text-blue-600 shadow-md"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Deck</span>
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-colors duration-200 flex items-center justify-center gap-1.5 sm:gap-2 ${
-                viewMode === "list"
-                  ? "bg-white text-blue-600 shadow-md"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span>Lista</span>
-            </button>
-          </div>
-        </div>
-
-        {onExport && (
-          <div>
-            <button
-              onClick={onExport}
-              disabled={exporting || exportDisabled}
-              className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm sm:text-base font-semibold rounded-xl sm:rounded-2xl shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-200 flex items-center justify-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              {exporting ? "Exportando..." : "Baixar .apkg"}
-            </button>
-          </div>
+    <div className="space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        {deckName && (
+          <h2 className="text-lg font-semibold text-gray-900 truncate min-w-0 sm:flex-1">
+            {deckName}
+          </h2>
         )}
+        <div className="flex flex-1 sm:flex-initial min-w-0 bg-gray-100 rounded-card p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("deck")}
+            className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center justify-center gap-2 ${
+              viewMode === "deck"
+                ? "bg-white text-primary shadow-sm border border-gray-200/80"
+                : "text-muted hover:text-gray-900 hover:bg-gray-50/80"
+            }`}
+          >
+            <Layers className="w-4 h-4 flex-shrink-0" />
+            Estudo
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            className={`flex-1 min-w-0 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center justify-center gap-2 ${
+              viewMode === "list"
+                ? "bg-white text-primary shadow-sm border border-gray-200/80"
+                : "text-muted hover:text-gray-900 hover:bg-gray-50/80"
+            }`}
+          >
+            <List className="w-4 h-4 flex-shrink-0" />
+            Lista
+          </button>
+        </div>
       </div>
 
-      {/* Deck View - CSS scroll-snap (animação nativa do browser) */}
+      {onExport && (
+        <div>
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={exporting || exportDisabled}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-card hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            {exporting ? "A exportar..." : "Transferir .apkg para Anki"}
+          </button>
+        </div>
+      )}
+
       {viewMode === "deck" && (
-        <div className="space-y-4 sm:space-y-6">
-          <div className="text-center">
-            <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm font-medium">
-              <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              Card {currentCardIndex + 1} de {cards.length}
-            </span>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm text-muted">
+              <span>Cartão {currentCardIndex + 1} de {cards.length}</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-[width] duration-300 ease-out"
+                style={{
+                  width: `${((currentCardIndex + 1) / cards.length) * 100}%`,
+                }}
+              />
+            </div>
           </div>
 
-          {/* Scroll container - navegador controla swipe nativamente */}
           <div
             ref={scrollRef}
-            className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory py-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ WebkitOverflowScrolling: 'touch', scrollBehavior: 'auto' }}
+            className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory py-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ WebkitOverflowScrolling: "touch" }}
           >
             {cards.map((card, index) => (
               <div
                 key={index}
-                ref={(el) => { slideRefs.current[index] = el; }}
-                className="flex-shrink-0 w-full min-w-full snap-center px-3 flex justify-center"
+                ref={(el) => {
+                  slideRefs.current[index] = el;
+                }}
+                className="flex-shrink-0 w-full min-w-full snap-center px-2 flex justify-center"
               >
-                {/* Wrapper com sombra (sem overflow) para a sombra rolar com o card */}
                 <div
-                  className="rounded-2xl sm:rounded-3xl min-h-[240px] sm:min-h-[280px] w-full max-w-[calc(100%-1rem)] shadow-2xl cursor-pointer"
+                  className={`w-full max-w-[calc(100%-0.5rem)] min-h-[220px] sm:min-h-[260px] rounded-card-lg border border-blue-100 bg-white shadow-card-focus cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-card-hover active:scale-[0.995] ${
+                    index === currentCardIndex ? "ring-1 ring-primary/10" : ""
+                  }`}
                   onClick={() => handleCardClick(index)}
                 >
-                <div
-                  className="relative w-full h-full min-h-[240px] sm:min-h-[280px] rounded-2xl sm:rounded-3xl overflow-hidden perspective-[2000px]"
-                >
-                  {/* Flip container - só CSS transition */}
                   <div
-                    className="relative w-full h-full min-h-[240px] sm:min-h-[280px]"
-                    style={{
-                      transformStyle: 'preserve-3d',
-                      transform: index === currentCardIndex && showAnswer ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                      transition: 'transform 0.35s ease-out',
-                    }}
+                    className="relative w-full h-full min-h-[220px] sm:min-h-[260px]"
+                    style={{ perspective: "2000px" }}
                   >
-                    {/* Front */}
                     <div
-                      className="absolute inset-0 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl sm:rounded-3xl p-6 sm:p-8 flex flex-col justify-center items-center text-white overflow-hidden [backface-visibility:hidden] [-webkit-backface-visibility:hidden]"
-                      style={{ transform: 'rotateY(0deg)' }}
+                      className="relative w-full h-full min-h-[220px] sm:min-h-[260px]"
+                      style={{
+                        transformStyle: "preserve-3d",
+                        transform:
+                          index === currentCardIndex && showAnswer
+                            ? "rotateY(180deg)"
+                            : "rotateY(0deg)",
+                        transition: "transform 0.4s cubic-bezier(0.34, 1.2, 0.64, 1)",
+                      }}
                     >
-                      <div className="text-center space-y-3 sm:space-y-4 px-2">
-                        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 bg-white/25 rounded-full text-[10px] sm:text-xs uppercase tracking-wide">
-                          <HelpCircle className="w-3 h-3" />
-                          Pergunta
-                        </div>
-                        <p className="text-base sm:text-xl font-semibold leading-relaxed">
-                          {card.front}
-                        </p>
-                        <p className="text-xs sm:text-sm opacity-75">
-                          Clique para ver a resposta
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Back */}
-                    <div
-                      className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-sky-500 rounded-2xl sm:rounded-3xl p-6 sm:p-8 flex flex-col justify-center items-center text-white overflow-hidden [backface-visibility:hidden] [-webkit-backface-visibility:hidden]"
-                      style={{ transform: 'rotateY(180deg)' }}
-                    >
-                      <div className="text-center space-y-3 sm:space-y-4 w-full px-2">
-                        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 bg-white/25 rounded-full text-[10px] sm:text-xs uppercase tracking-wide">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Resposta
-                        </div>
-                        <div className="text-sm sm:text-lg font-medium leading-relaxed">
-                          {card.back}
-                        </div>
-                        {card.tags && card.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center mt-3 sm:mt-4">
-                            {card.tags.map((tag, i) => (
-                              <span key={i} className="inline-flex items-center gap-1 text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 bg-white/25 rounded-full">
-                                <TagIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                                {tag}
-                              </span>
-                            ))}
+                      <div
+                        className="absolute inset-0 bg-blue-50/40 border border-blue-100/80 rounded-card-lg p-6 flex flex-col justify-center items-center text-left [backface-visibility:hidden]"
+                        style={{ transform: "rotateY(0deg)" }}
+                      >
+                        <div className="w-full space-y-3">
+                          <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                            <HelpCircle className="w-3.5 h-3.5" />
+                            Pergunta
                           </div>
-                        )}
-                        <p className="text-xs sm:text-sm opacity-75">
-                          Clique para voltar
-                        </p>
+                          <p className="text-base sm:text-lg font-medium text-gray-900 leading-relaxed">
+                            {card.front}
+                          </p>
+                          <p className="text-xs text-muted">
+                            Clique ou use Espaço para ver a resposta
+                          </p>
+                        </div>
+                      </div>
+
+                      <div
+                        className="absolute inset-0 bg-emerald-50/50 border border-emerald-100/80 rounded-card-lg p-6 flex flex-col justify-center items-center text-left [backface-visibility:hidden]"
+                        style={{ transform: "rotateY(180deg)" }}
+                      >
+                        <div className="w-full space-y-3">
+                          <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-emerald-100/80 text-emerald-800 rounded-md text-xs font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Resposta
+                          </div>
+                          <div className="text-sm sm:text-base text-gray-800 leading-relaxed">
+                            {card.back}
+                          </div>
+                          {card.tags && card.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-2">
+                              {card.tags.map((tag, i) => (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded"
+                                >
+                                  <TagIcon className="w-3 h-3" />
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <p className="text-xs text-muted">
+                            Clique para voltar à pergunta
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Navigation */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-2 sm:gap-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
               <button
+                type="button"
                 onClick={prevCard}
                 disabled={currentCardIndex === 0}
-                className="px-3 sm:px-6 py-2 sm:py-3 bg-white border-2 border-blue-200 text-blue-600 text-sm sm:text-base font-medium rounded-xl sm:rounded-2xl hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-1.5 sm:gap-2"
+                className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-card hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 flex items-center gap-2 shadow-sm"
               >
-                <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Anterior</span>
-                <span className="sm:hidden">Ant</span>
+                <ArrowLeft className="w-4 h-4" />
+                Anterior
               </button>
-
               <button
+                type="button"
                 onClick={nextCard}
                 disabled={currentCardIndex === cards.length - 1}
-                className="px-3 sm:px-6 py-2 sm:py-3 bg-white border-2 border-blue-200 text-blue-600 text-sm sm:text-base font-medium rounded-xl sm:rounded-2xl hover:bg-blue-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-1.5 sm:gap-2"
+                className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-card hover:bg-gray-50 hover:border-gray-300 active:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150 flex items-center gap-2 shadow-sm"
               >
-                <span className="hidden sm:inline">Próximo</span>
-                <span className="sm:hidden">Prox</span>
-                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                Próximo
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
-
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-[width] duration-300 ease-out"
-                style={{ width: `${((currentCardIndex + 1) / cards.length) * 100}%` }}
-              />
-            </div>
+            <p className="text-xs text-muted text-center">
+              <span className="md:hidden">Toque no cartão para virar e deslize para mudar.</span>
+              <span className="hidden md:inline">Setas para navegar. Espaço ou Enter para virar.</span>
+            </p>
           </div>
         </div>
       )}
 
-      {/* List View */}
       {viewMode === "list" && (
-        <div className="space-y-3 sm:space-y-4 max-h-[500px] sm:max-h-[600px] overflow-y-auto pr-1 sm:pr-2">
+        <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
           {cards.map((card, index) => (
             <div
               key={index}
-              className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border-2 border-gray-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/10 transition-colors duration-200"
+              className="bg-white rounded-card border border-gray-200 p-4 shadow-card hover:shadow-card-hover transition-shadow duration-150"
             >
-              <div className="flex items-start gap-3 sm:gap-4">
-                <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-lg sm:rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-8 h-8 bg-primary-muted text-primary rounded-lg flex items-center justify-center font-semibold text-sm">
                   {index + 1}
                 </div>
-                <div className="flex-1 space-y-3 sm:space-y-4 min-w-0">
+                <div className="flex-1 min-w-0 space-y-3">
                   <div>
-                    <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-semibold text-blue-600 uppercase mb-1.5 sm:mb-2">
-                      <HelpCircle className="w-3 h-3 flex-shrink-0" />
-                      <span>Pergunta</span>
-                    </div>
-                    <p className="text-sm sm:text-base text-gray-900 font-medium break-words">
+                    <p className="text-xs font-medium text-blue-700 uppercase tracking-wide mb-1">
+                      Pergunta
+                    </p>
+                    <p className="text-sm text-gray-900 font-medium">
                       {card.front}
                     </p>
                   </div>
-                  <div className="pt-3 sm:pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-semibold text-cyan-600 uppercase mb-1.5 sm:mb-2">
-                      <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
-                      <span>Resposta</span>
-                    </div>
-                    <p className="text-sm sm:text-base text-gray-700 leading-relaxed break-words">
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-xs font-medium text-emerald-700 uppercase tracking-wide mb-1">
+                      Resposta
+                    </p>
+                    <p className="text-sm text-gray-700 leading-relaxed">
                       {card.back}
                     </p>
                   </div>
                   {card.tags && card.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2 pt-2">
+                    <div className="flex flex-wrap gap-1.5 pt-2">
                       {card.tags.map((tag, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-700 rounded-full font-medium"
+                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded"
                         >
-                          <TagIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
-                          <span className="truncate">{tag}</span>
+                          <TagIcon className="w-3 h-3" />
+                          {tag}
                         </span>
                       ))}
                     </div>
