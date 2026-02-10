@@ -5,7 +5,8 @@ export interface IUserDoc {
   _id: mongoose.Types.ObjectId;
   name: string;
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
   credits: number;
   createdAt?: Date;
   updatedAt?: Date;
@@ -28,9 +29,15 @@ const userSchema = new mongoose.Schema<IUserDoc>(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: false,
       minlength: [6, 'Password must be at least 6 characters'],
       select: false,
+    },
+    googleId: {
+      type: String,
+      required: false,
+      sparse: true,
+      index: true,
     },
     credits: {
       type: Number,

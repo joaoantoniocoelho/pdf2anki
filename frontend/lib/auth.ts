@@ -20,6 +20,17 @@ export async function login(email: string, password: string): Promise<{ user: Us
   return { user, token };
 }
 
+export async function loginWithGoogle(credential: string): Promise<{ user: User; token: string }> {
+  const response = await api.post('/auth/google', { credential });
+  const { user, token } = response.data;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('token', token);
+  }
+
+  return { user, token };
+}
+
 export async function signup(name: string, email: string, password: string): Promise<{ user: User; token: string }> {
   const response = await api.post('/auth/signup', { name, email, password });
   const { user, token } = response.data;

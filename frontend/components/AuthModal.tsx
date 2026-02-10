@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { X, LogIn, UserPlus, Loader2, AlertCircle } from 'lucide-react';
-import { login, signup } from '@/lib/auth';
+import { GoogleLogin } from '@react-oauth/google';
+import { login, signup, loginWithGoogle } from '@/lib/auth';
 import { useUser } from '@/contexts/UserContext';
 
 interface AuthModalProps {
@@ -28,6 +29,27 @@ export default function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProp
   const [signupConfirmPassword, setSignupConfirmPassword] = useState('');
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState<string | null>(null);
+
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  const handleGoogleSuccess = async (credential: string) => {
+    setGoogleError(null);
+    setGoogleLoading(true);
+    try {
+      const { user, token } = await loginWithGoogle(credential);
+      setUser(user, token);
+      onClose();
+    } catch (err: unknown) {
+      const message = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { error?: string } }; message?: string }).response?.data?.error
+          || (err as { message?: string }).message
+        : 'Erro ao fazer login com Google';
+      setGoogleError(String(message));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,10 +161,10 @@ export default function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProp
             </div>
 
             <div className="p-4 md:p-6">
-              {loginError && (
+              {(loginError || googleError) && (
                 <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm">{loginError}</span>
+                  <span className="text-sm">{loginError ?? googleError}</span>
                 </div>
               )}
 
@@ -195,6 +217,27 @@ export default function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProp
                 </button>
               </form>
 
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-2 text-sm text-gray-500">ou</span>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={(res) => {
+                    if (res.credential) {
+                      handleGoogleSuccess(res.credential);
+                    }
+                  }}
+                  onError={() => setGoogleError('Falha ao fazer login com Google')}
+                  useOneTap={false}
+                />
+              </div>
+
               <div className="mt-4 text-center">
                 <p className="text-sm text-gray-600">
                   Não tem uma conta?{' '}
@@ -239,10 +282,10 @@ export default function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProp
             </div>
 
             <div className="p-4 md:p-6">
-              {signupError && (
+              {(signupError || googleError) && (
                 <div className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-sm">{signupError}</span>
+                  <span className="text-sm">{signupError ?? googleError}</span>
                 </div>
               )}
 
@@ -326,6 +369,27 @@ export default function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProp
                   )}
                 </button>
               </form>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-2 text-sm text-gray-500">ou</span>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={(res) => {
+                    if (res.credential) {
+                      handleGoogleSuccess(res.credential);
+                    }
+                  }}
+                  onError={() => setGoogleError('Falha ao fazer login com Google')}
+                  useOneTap={false}
+                />
+              </div>
 
               <div className="mt-4 text-center">
                 <p className="text-sm text-gray-600">

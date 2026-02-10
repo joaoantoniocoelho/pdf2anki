@@ -21,8 +21,13 @@ export function createAuthRouter(): Router {
     body('password').notEmpty().withMessage('Password is required'),
   ];
 
+  const googleValidation = [
+    body('credential').notEmpty().withMessage('Credential is required'),
+  ];
+
   router.post('/signup', signupValidation, authController.signup);
   router.post('/login', loginValidation, authController.login);
+  router.post('/google', googleValidation, authController.loginWithGoogle);
   router.get('/profile', authenticate, authController.getProfile);
 
   return router;

@@ -66,6 +66,30 @@ export class AuthController {
     }
   };
 
+  loginWithGoogle = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({
+          error: 'Invalid data',
+          details: errors.array(),
+        });
+        return;
+      }
+      const { credential } = req.body as { credential?: string };
+      const result = await this.authService.loginWithGoogle(credential!);
+      res.status(200).json({
+        message: 'Login successful',
+        ...result,
+      });
+    } catch (error) {
+      console.error('Google login error:', error);
+      res.status(401).json({
+        error: error instanceof Error ? error.message : 'Google login failed',
+      });
+    }
+  };
+
   getProfile = async (req: Request, res: Response): Promise<void> => {
     try {
       if (!req.user) {

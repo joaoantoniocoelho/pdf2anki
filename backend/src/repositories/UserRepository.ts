@@ -8,6 +8,12 @@ export interface CreateUserInput {
   password: string;
 }
 
+export interface CreateFromGoogleInput {
+  name: string;
+  email: string;
+  googleId: string;
+}
+
 export class UserRepository {
   async create(data: CreateUserInput): Promise<IUserDoc> {
     const hashed = await bcrypt.hash(data.password, 10);
@@ -21,6 +27,30 @@ export class UserRepository {
 
   async findByEmail(email: string): Promise<IUserDoc | null> {
     const doc = await UserModel.findOne({ email }).select('+password').exec();
+    return doc ?? null;
+  }
+
+  async findByGoogleId(googleId: string): Promise<IUserDoc | null> {
+    const doc = await UserModel.findOne({ googleId }).exec();
+    return doc ?? null;
+  }
+
+  async createFromGoogle(data: CreateFromGoogleInput): Promise<IUserDoc> {
+    const user = await UserModel.create({
+      name: data.name,
+      email: data.email,
+      googleId: data.googleId,
+      credits: DEFAULT_CREDITS_FOR_NEW_USER,
+    });
+    return user as unknown as IUserDoc;
+  }
+
+  async updateGoogleId(userId: string, googleId: string): Promise<IUserDoc | null> {
+    const doc = await UserModel.findByIdAndUpdate(
+      userId,
+      { googleId },
+      { new: true, runValidators: true }
+    ).exec();
     return doc ?? null;
   }
 
