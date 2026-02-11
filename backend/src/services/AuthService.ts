@@ -1,11 +1,15 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
+import type { IUserDoc } from '../models/User.js';
 import { UserRepository } from '../repositories/UserRepository.js';
 import { CreditsService } from './CreditsService.js';
 import { generateToken } from '../config/jwt.js';
 import { toUserResponse } from '../utils/user.js';
+import { EmailService } from './EmailService.js';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? '';
+const BACKEND_URL = process.env.BACKEND_URL ?? `http://localhost:${process.env.PORT ?? 3001}`;
 
 export interface AuthServiceResult {
   user?: Record<string, unknown> & { credits?: number };
@@ -15,6 +19,19 @@ export interface AuthServiceResult {
 export class AuthService {
   private readonly userRepository = new UserRepository();
   private readonly creditsService = new CreditsService();
+  private readonly emailService = new EmailService();
+
+  private async buildAuthResult(
+    user: IUserDoc,
+    options?: { token?: string }
+  ): Promise<AuthServiceResult> {
+    const credits = await this.creditsService.getCredits(user);
+    const result: AuthServiceResult = {
+      user: { ...toUserResponse(user), credits },
+    };
+    if (options?.token) result.token = options.token;
+    return result;
+  }
 
   async signup(data: {
     name: string;
@@ -30,15 +47,19 @@ export class AuthService {
       email: data.email,
       password: data.password,
     });
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await this.userRepository.setVerificationToken(
+      user._id.toString(),
+      verificationToken,
+      verificationExpires
+    );
+    const verifyUrl = `${BACKEND_URL}/api/auth/verify-email?token=${verificationToken}`;
+    await this.emailService
+      .sendVerificationEmail({ to: user.email, name: user.name, verifyUrl })
+      .catch((err) => console.error('[AuthService] sendVerificationEmail failed:', err));
     const token = generateToken(user._id.toString());
-    const credits = await this.creditsService.getCredits(user);
-    return {
-      user: {
-        ...toUserResponse(user),
-        credits,
-      },
-      token,
-    };
+    return this.buildAuthResult(user, { token });
   }
 
   async login(data: { email: string; password: string }): Promise<AuthServiceResult> {
@@ -54,14 +75,7 @@ export class AuthService {
       throw new Error('Invalid credentials');
     }
     const token = generateToken(user._id.toString());
-    const credits = await this.creditsService.getCredits(user);
-    return {
-      user: {
-        ...toUserResponse(user),
-        credits,
-      },
-      token,
-    };
+    return this.buildAuthResult(user, { token });
   }
 
   async loginWithGoogle(googleIdToken: string): Promise<AuthServiceResult> {
@@ -80,11 +94,7 @@ export class AuthService {
     let user = await this.userRepository.findByGoogleId(googleId!);
     if (user) {
       const token = generateToken(user._id.toString());
-      const credits = await this.creditsService.getCredits(user);
-      return {
-        user: { ...toUserResponse(user), credits },
-        token,
-      };
+      return this.buildAuthResult(user, { token });
     }
 
     user = await this.userRepository.findByEmail(email);
@@ -92,11 +102,7 @@ export class AuthService {
       const updated = await this.userRepository.updateGoogleId(user._id.toString(), googleId!);
       const target = updated ?? user;
       const token = generateToken(target._id.toString());
-      const credits = await this.creditsService.getCredits(target);
-      return {
-        user: { ...toUserResponse(target), credits },
-        token,
-      };
+      return this.buildAuthResult(target, { token });
     }
 
     user = await this.userRepository.createFromGoogle({
@@ -105,11 +111,7 @@ export class AuthService {
       googleId: googleId!,
     });
     const token = generateToken(user._id.toString());
-    const credits = await this.creditsService.getCredits(user);
-    return {
-      user: { ...toUserResponse(user), credits },
-      token,
-    };
+    return this.buildAuthResult(user, { token });
   }
 
   async getProfile(userId: string): Promise<AuthServiceResult> {
@@ -117,12 +119,33 @@ export class AuthService {
     if (!user) {
       throw new Error('User not found');
     }
-    const credits = await this.creditsService.getCredits(user);
-    return {
-      user: {
-        ...toUserResponse(user),
-        credits,
-      },
-    };
+    return this.buildAuthResult(user);
+  }
+
+  async verifyEmail(token: string): Promise<{ status: 'success' | 'expired' }> {
+    const user = await this.userRepository.findByVerificationToken(token);
+    const notExpired =
+      user?.emailVerificationExpires && new Date() <= user.emailVerificationExpires;
+
+    if (user && notExpired) {
+      await this.userRepository.setEmailVerifiedAndClearToken(user._id.toString());
+      return { status: 'success' };
+    }
+    return { status: 'expired' };
+  }
+
+  async resendVerificationEmail(userId: string): Promise<void> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) throw new Error('User not found');
+    if (user.emailVerified) throw new Error('Email already verified');
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await this.userRepository.setVerificationToken(userId, verificationToken, verificationExpires);
+
+    const verifyUrl = `${BACKEND_URL}/api/auth/verify-email?token=${verificationToken}`;
+    await this.emailService
+      .sendVerificationEmail({ to: user.email, name: user.name, verifyUrl })
+      .catch((err) => console.error('[AuthService] sendVerificationEmail failed:', err));
   }
 }

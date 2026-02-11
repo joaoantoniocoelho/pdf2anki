@@ -41,6 +41,7 @@ export class UserRepository {
       email: data.email,
       googleId: data.googleId,
       credits: DEFAULT_CREDITS_FOR_NEW_USER,
+      emailVerified: true,
     });
     return user as unknown as IUserDoc;
   }
@@ -48,7 +49,7 @@ export class UserRepository {
   async updateGoogleId(userId: string, googleId: string): Promise<IUserDoc | null> {
     const doc = await UserModel.findByIdAndUpdate(
       userId,
-      { googleId },
+      { googleId, emailVerified: true },
       { new: true, runValidators: true }
     ).exec();
     return doc ?? null;
@@ -96,5 +97,40 @@ export class UserRepository {
     if (!doc) return 0;
     const credits = (doc as { credits?: number }).credits;
     return typeof credits === 'number' ? credits : 0;
+  }
+
+  async findByVerificationToken(token: string): Promise<IUserDoc | null> {
+    const doc = await UserModel.findOne({ emailVerificationToken: token })
+      .select('+emailVerificationToken +emailVerificationExpires')
+      .exec();
+    return doc ?? null;
+  }
+
+  async setEmailVerifiedAndClearToken(userId: string): Promise<IUserDoc | null> {
+    const doc = await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        emailVerified: true,
+        $unset: {
+          emailVerificationToken: 1,
+          emailVerificationExpires: 1,
+        },
+      },
+      { new: true, runValidators: true }
+    ).exec();
+    return doc ?? null;
+  }
+
+  async setVerificationToken(
+    userId: string,
+    token: string,
+    expires: Date
+  ): Promise<IUserDoc | null> {
+    const doc = await UserModel.findByIdAndUpdate(
+      userId,
+      { emailVerificationToken: token, emailVerificationExpires: expires },
+      { new: true }
+    ).exec();
+    return doc ?? null;
   }
 }

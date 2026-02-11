@@ -29,6 +29,8 @@ export function createAuthRouter(): Router {
   router.post('/login', loginValidation, authController.login);
   router.post('/google', googleValidation, authController.loginWithGoogle);
   router.get('/profile', authenticate, authController.getProfile);
+  router.get('/verify-email', authController.verifyEmail);
+  router.post('/resend-verification', authenticate, authController.resendVerification);
 
   return router;
 }

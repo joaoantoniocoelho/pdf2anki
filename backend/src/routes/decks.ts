@@ -6,6 +6,7 @@ import path from 'path';
 import { DeckController } from '../controllers/DeckController.js';
 import { CreditsService } from '../services/CreditsService.js';
 import { createAuthenticate } from '../middlewares/auth.js';
+import { requireEmailVerified } from '../middlewares/requireEmailVerified.js';
 import { createCheckDensityAccess } from '../middlewares/checkLimits.js';
 import { createCheckCreditsByPdf } from '../middlewares/checkCreditsByPdf.js';
 import { InsufficientCreditsError } from '../errors/InsufficientCreditsError.js';
@@ -47,6 +48,7 @@ export function createDecksRouter(): Router {
   router.post(
     '/generate',
     authenticate,
+    requireEmailVerified,
     checkDensityAccess,
     checkGenerationSlots,
     upload.single('pdf'),

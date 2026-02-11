@@ -8,6 +8,9 @@ export interface IUserDoc {
   password?: string;
   googleId?: string;
   credits: number;
+  emailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpires?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -44,6 +47,20 @@ const userSchema = new mongoose.Schema<IUserDoc>(
       default: DEFAULT_CREDITS_FOR_NEW_USER,
       min: 0,
     },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: {
+      type: String,
+      required: false,
+      select: false,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      required: false,
+      select: false,
+    }
   },
   { timestamps: true }
 );

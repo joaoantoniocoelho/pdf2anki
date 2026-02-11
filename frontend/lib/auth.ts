@@ -4,6 +4,7 @@ export interface User {
   _id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
   credits?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -57,4 +58,8 @@ export function logout(): void {
     localStorage.removeItem('token');
     window.location.href = '/';
   }
+}
+
+export async function resendVerificationEmail(): Promise<void> {
+  await api.post('/auth/resend-verification');
 }

@@ -242,6 +242,11 @@ export default function Home() {
           return;
         }
         if (status === 403) {
+          const code = (err.response?.data as { code?: string })?.code;
+          if (code === "EMAIL_NOT_VERIFIED") {
+            showToast("Confirme seu email para gerar decks. Use o banner acima para reenviar o email.", "error");
+            return;
+          }
           showToast(message, "error");
           return;
         }
@@ -448,12 +453,17 @@ export default function Home() {
             <button
               type="button"
               onClick={handleGenerate}
-              disabled={!pdfFile || loading}
+              disabled={!pdfFile || loading || (!!user && user.emailVerified === false)}
               className="w-full py-3 bg-primary text-white text-sm font-medium rounded-card hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              {loading ? "A gerar..." : "Gerar flashcards"}
+              {loading ? "A gerar..." : user?.emailVerified === false ? "Confirme seu email para gerar" : "Gerar flashcards"}
             </button>
+            {user?.emailVerified === false && (
+              <p className="text-xs text-amber-600 text-center -mt-2">
+                Verifique sua caixa de entrada e clique no link enviado, ou use &quot;Reenviar email&quot; no banner acima.
+              </p>
+            )}
 
             <div className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-card">
               <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
